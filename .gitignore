@@ -1,0 +1,5 @@
+# ghdl build files
+build/
+
+# python
+venv/

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -e  # stop on first error
+SRC_DIR=$PWD/src
+TB_DIR=$PWD/test
+BUILD_DIR=$PWD/build
+mkdir -p $BUILD_DIR
+cd $BUILD_DIR
+
+echo "analyse..."
+
+# first analyze package files (common type defs)
+if [ -d $SRC_DIR/common ]; then
+    find $SRC_DIR/common -name "*.vhdl" -o -name "*.vhd" | while read -r file; do
+        echo "  analysing: $file"
+        ghdl -a --std=08 "$file"
+    done
+fi
+
+# analyze components directory
+if [ -d $SRC_DIR/components ]; then
+    find $SRC_DIR/components -name "*.vhdl" -o -name "*.vhd" | while read -r file; do
+        echo "  analysing: $file"
+        ghdl -a --std=08 "$file"
+    done
+fi
+
+# analyze remaining src files
+find $SRC_DIR -maxdepth 1 -name "*.vhdl" -o -name "*.vhd" | while read -r file; do
+    echo "  analysing: $file"
+    ghdl -a --std=08 "$file"
+done
+
+# Finally analyze testbench files
+find $TB_DIR -name "*.vhdl" -o -name "*.vhd" | while read -r file; do
+    echo "  analysing: $file"
+    ghdl -a --std=08 "$file"
+done
+
+echo "elaborate..."
+# Elaborate all testbenches
+find $TB_DIR -name "tp_*.vhdl" -o -name "tb_*.vhdl" | while read -r file; do
+    tb_name=$(basename "$file" .vhdl)
+    echo "  elaborating: $tb_name"
+    ghdl -e --std=08 "$tb_name"
+done

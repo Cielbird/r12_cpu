@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -e  # stop on first error
+
+source ./scripts/build
+
+echo "running..."
+# Elaborate all testbenches
+find $TB_DIR -name "tp_*.vhdl" -o -name "tb_*.vhdl" | while read -r file; do
+    tb_name=$(basename "$file" .vhdl)
+    OUT=$tb_name"_wave.vcd"
+    echo "  running: $tb_name"
+    ghdl -r --std=08 "$tb_name" --vcd=$OUT
+    echo "wave output: $OUT"
+done
