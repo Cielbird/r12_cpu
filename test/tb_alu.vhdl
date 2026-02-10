@@ -9,21 +9,17 @@ entity tb_alu is
 end tb_alu;
 
 architecture testbench of tb_alu is
-    -- Clock period
     constant clk_period : time := 10 ns;
     
-    -- Signals
     signal clk : std_logic := '0';
     signal op : r12_alu_op := ALU_ADD;
     signal a : unsigned12 := to_unsigned(0, 12);
     signal b : unsigned12 := to_unsigned(0, 12);
     signal d_out : unsigned12;
     
-    -- Control signal
     signal done : boolean := false;
     
 begin
-    -- Instantiate ALU
     uut: entity work.alu
         port map (
             clk => clk,
@@ -33,7 +29,6 @@ begin
             d_out => d_out
         );
     
-    -- Clock generation
     clk_process: process
     begin
         while not done loop
@@ -45,7 +40,6 @@ begin
         wait;
     end process;
     
-    -- Test stimulus
     stim_process: process
     begin
         -- Test ALU_ADD
@@ -76,7 +70,7 @@ begin
             report "ADD zero test failed"
             severity error;
         
-        -- Add more tests for other operations when implemented
+        -- TODO add more tests
         
         report "All tests passed!";
         done <= true;
