@@ -22,10 +22,20 @@ entity processor_top is
 end processor_top;
 
 architecture rtl of processor_top is
+    -- TODO add state machine (fetch, decode, execute, mem, write-back...), no pipelining for now.
     signal pc : ram_address := (others => '0');
     signal instr : ram_data := (others => '0');
-    signal instr_op : instr_op_type;
 
+    -- after decoding
+    signal instr_op : instr_op_type;
+    signal rs1_val : word_type; -- value from register rs1
+    signal rs2_val : word_type; -- value from register rs2
+    signal imm_val : word_type; -- imm value from instruction
+    --  signals to alu
+    signal alu_op : alu_op_type;
+    signal alu_in_a : word_type;
+    signal alu_in_b : word_type;
+    signal alu_out : word_type;
 
     component alu is
         port (
@@ -36,12 +46,6 @@ architecture rtl of processor_top is
             d_out : out word_type
         );
     end component;
-
-    --  signals to alu
-    signal alu_op : alu_op_type;
-    signal alu_in_a : word_type;
-    signal alu_in_b : word_type;
-    signal alu_out : word_type;
 begin
     alu_instance : alu port map(
         clk => clk,
@@ -51,6 +55,7 @@ begin
         d_out => alu_out
     );
 
+    -- decoding
     instr_op <= data_to_instr_op(instr);
     alu_op <= instr_op_to_alu_op(instr_op);
 
