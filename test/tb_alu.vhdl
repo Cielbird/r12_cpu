@@ -12,10 +12,10 @@ architecture testbench of tb_alu is
     constant clk_period : time := 10 ns;
 
     signal clk : std_logic := '0';
-    signal op : r12_alu_op := ALU_ADD;
-    signal a : unsigned12 := to_unsigned(0, 12);
-    signal b : unsigned12 := to_unsigned(0, 12);
-    signal d_out : unsigned12;
+    signal op : alu_op_type := ALU_ADD;
+    signal a : word_type := (others => '0');
+    signal b : word_type := (others => '0');
+    signal d_out : word_type;
 
     signal done : boolean := false;
 
@@ -41,18 +41,18 @@ begin
     end process;
 
     stim_process : process
-        procedure test_case_alu(constant case_op : r12_alu_op;
+        procedure test_case_alu(constant case_op : alu_op_type;
         constant case_a : integer;
         constant case_b : integer;
         constant case_output : integer) is
     begin
         op <= case_op;
-        a <= to_unsigned(case_a, 12);
-        b <= to_unsigned(case_b, 12);
+        a <= std_logic_vector(to_unsigned(case_a, 12));
+        b <= std_logic_vector(to_unsigned(case_b, 12));
         wait for clk_period;
         wait for clk_period;
-        assert d_out = to_unsigned(case_output, 12)
-        report r12_alu_op'image(op) & " test failed: expected " & integer'image(case_output) & ", got " & integer'image(to_integer(d_out))
+        assert d_out = word_type(to_unsigned(case_output, 12))
+        report alu_op_type'image(op) & " test failed: expected " & integer'image(case_output) & ", got " & integer'image(to_integer(unsigned(d_out)))
             severity error;
     end procedure test_case_alu;
 begin

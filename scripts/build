@@ -8,13 +8,11 @@ cd $BUILD_DIR
 
 echo "analyse..."
 
-# first analyze package files (common type defs)
-if [ -d $SRC_DIR/common ]; then
-    find $SRC_DIR/common -name "*.vhdl" -o -name "*.vhd" | while read -r file; do
-        echo "  analysing: $file"
-        ghdl -a --std=08 "$file"
-    done
-fi
+# first analyze package files (common type defs, order matters)
+echo "  analysing: processor_pkg"
+ghdl -a --std=08 $SRC_DIR/common/processor_pkg.vhdl
+echo "  analysing: ram_pkg"
+ghdl -a --std=08 $SRC_DIR/common/ram_pkg.vhdl
 
 # analyze components directory
 if [ -d $SRC_DIR/components ]; then
