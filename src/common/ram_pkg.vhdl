@@ -4,12 +4,10 @@ use ieee.numeric_std.all;
 
 library std;
 use std.textio.all;
-
-
 package ram_pkg is
-    constant ADDR_WIDTH : integer := 10;  -- 1024 words
-    constant DATA_WIDTH : integer := 12;   -- 12-bit data
-    type ram_type is array (0 to 2**ADDR_WIDTH-1) of std_logic_vector(DATA_WIDTH-1 downto 0);
+    constant ADDR_WIDTH : integer := 10; -- 1024 words
+    constant DATA_WIDTH : integer := 12; -- 12-bit data
+    type ram_type is array (0 to 2 ** ADDR_WIDTH - 1) of std_logic_vector(DATA_WIDTH - 1 downto 0);
 
     -- utility to initialize RAM with data
     impure function init_ram_from_file(filename : string) return ram_type;
