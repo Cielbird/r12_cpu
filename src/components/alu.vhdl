@@ -27,7 +27,7 @@ begin
             when ALU_SUB =>
                 d_out <= a - b;
             when ALU_MUL =>
-                d_out <= a * b;
+                d_out <= resize(a * b, 12); -- report overflow
             when ALU_AND =>
                 d_out <= a and b;
             when ALU_OR =>
