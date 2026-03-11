@@ -8,6 +8,7 @@ use work.processor_pkg.all;
 entity alu is
     port (
         clk : in std_logic;
+        enable : in std_logic;
         op : in alu_op_type;
         a : in word_type;
         b : in word_type;
@@ -18,7 +19,7 @@ end alu;
 architecture rtl of alu is
 begin
     process (clk)
-        variable a_u12 : unsigned(11 downto 0);
+        variable a_u12 : unsigned(11 downto 0); -- TODO convert to signed
         variable b_u12 : unsigned(11 downto 0);
         variable out_u12 : unsigned(11 downto 0);
     begin

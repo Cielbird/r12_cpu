@@ -23,6 +23,7 @@ begin
     uut : entity work.alu
         port map(
             clk => clk,
+            enable => '1',
             op => op,
             a => a,
             b => b,
