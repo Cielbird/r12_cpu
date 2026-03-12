@@ -58,6 +58,7 @@ architecture rtl of processor_top is
     -- mem writeback stage
     signal MEM_branch_taken : std_logic := '0';
     signal MEM_result : word_type;
+    signal MEM_write_data : word_type;
 
     -- register bank signals
     signal rd_to_regs : std_logic_vector(1 downto 0); -- "address" in reg bank for rd
@@ -69,8 +70,6 @@ architecture rtl of processor_top is
     --  signals to alu
     signal alu_enable : std_logic;
     signal alu_op : alu_op_type;
-    signal alu_in_a : word_type;
-    signal alu_in_b : word_type;
     signal alu_out : word_type;
 
     component alu is
@@ -154,7 +153,7 @@ begin
         elsif rising_edge(clk) then
             if pc_we then
                 if MEM_branch_taken='1' then
-                    ID_pc <= branch_instr;
+                    ID_pc <= MEM_instr;
                     ID_instr <= (others => '0');
                 else
                     ID_pc <= word_type(unsigned(pc) + 1);
@@ -222,22 +221,19 @@ begin
     port map(
         instruction => EX_instr,
         PC_in => EX_pc,
-        A => EX_a,
+        A => EX_rs1_val,
         branch_taken => EX_branch_taken,
-        result => EX_branch_unit_result, -- todo connect to EX/MEM buffer
+        result => EX_branch_unit_result,
         PC_out => EX_pc_out
     );
-
-    -- EX_a <= -- TODO FORWARDING LOGIC
-    -- EX_b <=-- TODO
 
     alu1 : alu
     port map(
         clk => clk,
         enable => alu_enable,
         op => alu_op,
-        a => alu_in_a,
-        b => alu_in_b,
+        a => EX_rs1_val,
+        b => EX_rs2_val,
         d_out => alu_out
     );
     
@@ -254,7 +250,8 @@ begin
                 else
                     MEM_instr <= EX_instr;
                 end if;
-                -- B ? TODO forwarding logic and muxing
+                
+                MEM_write_data <= EX_rs2_val;
                 MEM_branch_taken <= EX_branch_taken;
 
                 if EX_is_branch='1' then
