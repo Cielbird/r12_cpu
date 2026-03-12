@@ -17,12 +17,12 @@ architecture rtl of controller_top is
     component processor_top is
         port (
             clk : in std_logic;
-            instr_addr : out ram_address;
-            instr_data : in ram_data;
+            instr_addr : out address_type;
+            instr_data : in word_type;
             data_we : out std_logic;
             data_re : out std_logic;
-            data_addr : out ram_address;
-            data_bus : inout ram_data
+            data_addr : out address_type;
+            data_bus : inout word_type
         );
     end component;
 
@@ -31,18 +31,18 @@ architecture rtl of controller_top is
             clk : in std_logic;
             we : in std_logic;
             re : in std_logic;
-            addr_in : in ram_address;
-            data_bus : inout ram_data;
+            addr_in : in address_type;
+            data_bus : inout word_type;
             ready : out std_logic
         );
     end component;
 
-    signal instr_addr_bus : ram_address;
-    signal instr_data_bus : ram_data;
+    signal instr_addr_bus : address_type;
+    signal instr_data_bus : word_type;
     signal data_we : std_logic;
     signal data_re : std_logic;
-    signal data_addr_bus : ram_address;
-    signal data_bus : ram_data;
+    signal data_addr_bus : address_type;
+    signal data_bus : word_type;
     signal data_ready : std_logic;
 begin
 

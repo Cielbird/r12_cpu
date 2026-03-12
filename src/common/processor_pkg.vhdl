@@ -6,10 +6,8 @@ package processor_pkg is
     constant ADDR_WIDTH : integer := 12; -- 4096 words (12-bit addresses)
     constant DATA_WIDTH : integer := 12; -- 12-bit data
 
-    subtype word_type is std_logic_vector(11 downto 0);
-
-    subtype ram_address is word_type;
-    subtype ram_data is word_type;
+    subtype address_type is unsigned(11 downto 0); -- 12 bit addresses
+    subtype word_type is std_logic_vector(11 downto 0); -- word here is 12 bits
 
     type proc_state is (
         PROC_IF, -- instruction fetch
@@ -19,32 +17,7 @@ package processor_pkg is
         PROC_WB -- write-back
     );
 
-    type instr_op_type is ( -- TODO check, maybe useless 
-        NOP,
-        ADD_OP,
-        SUB_OP,
-        MULT_OP,
-        DIV_OP,
-        MOD_OP,
-        AND_OP,
-        OR_OP,
-        XOR_OP,
-        NOT_OP,
-        ADDI_OP,
-        SUBI_OP,
-        MULTI_OP,
-        DIVI_OP,
-        MODI_OP,
-        SHLI_OP,
-        SLRI_OP,
-        LD_OP,
-        SD_OP,
-        JALR_OP,
-        JAL_OP,
-        BZ_OP,
-        BNZ_OP
-    );
-
+    -- signed when possible
     type alu_op_type is (
         ALU_ADD,
         ALU_SUB,
@@ -59,7 +32,7 @@ package processor_pkg is
         ALU_SRL
     );
 
-    -- function data_to_instr_op (instruction : ram_data) return instr_op_type;
+    -- function data_to_instr_op (instruction : word_type) return instr_op_type;
     -- function instr_op_to_alu_op (instruction_op : instr_op_type) return alu_op_type;
 
 end package processor_pkg;

@@ -13,26 +13,26 @@ entity processor_top is
         reset : in std_logic;
 
         -- instructions bus - read-only
-        instr_addr : out ram_address;
-        instr_data : in ram_data;
+        instr_addr : out address_type;
+        instr_data : in word_type;
         -- data bus - read/write
         data_we : out std_logic; -- "data write enable"
         data_re : out std_logic; -- "data read enable"
-        data_addr : out ram_address;
-        data_bus : inout ram_data;
+        data_addr : out address_type;
+        data_bus : inout word_type;
         data_read_ready : in std_logic
     );
 end processor_top;
 
 architecture rtl of processor_top is
-    signal pc : ram_address := (others => '0');
-    signal instr : ram_data := (others => '0');
+    signal pc : address_type := (others => '0');
+    signal instr : word_type := (others => '0');
 
     signal pc_we : std_logic := '0'; -- program counter write enable
     signal stall_flag : std_logic := '0';
 
     -- decode stage
-    signal ID_pc : ram_address := (others => '0');
+    signal ID_pc : address_type;
     signal ID_instr : word_type := (others => '0');
     signal ID_rs1_used : std_logic := '0';
     signal ID_rs2_used : std_logic := '0';
@@ -43,8 +43,8 @@ architecture rtl of processor_top is
     signal ID_rs2_val : word_type; -- value from register rs2
 
     -- execute stage
-    signal EX_pc : ram_address := (others => '0');
-    signal EX_pc_out : ram_address := (others => '0'); -- PC after branching logic
+    signal EX_pc : address_type;
+    signal EX_pc_out : address_type; -- PC after branching logic
     signal EX_branch_taken : std_logic := '0';
     signal EX_branch_unit_result : word_type;
     signal EX_is_branch : std_logic;
@@ -56,6 +56,8 @@ architecture rtl of processor_top is
     signal EX_rs2_val : word_type; -- value from register rs2, at EX stage
 
     -- mem writeback stage
+    signal MEM_pc : address_type; -- todo program counter should be 12 bit unsigned
+    signal MEM_instr : word_type;
     signal MEM_branch_taken : std_logic := '0';
     signal MEM_result : word_type;
     signal MEM_write_data : word_type;
@@ -100,6 +102,7 @@ architecture rtl of processor_top is
         port (
             instruction : in word_type;
             instr_is_sd : out std_logic;
+            instr_is_ld : out std_logic;
             instr_bz_or_bnz : out std_logic;
             instr_is_branch : out std_logic;
             is_nop : out std_logic;
@@ -115,12 +118,12 @@ architecture rtl of processor_top is
     component branch_unit is
         port(
             instruction : in word_type;
-            PC_in : in word_type;
+            PC_in : in address_type;
             A : in word_type;
             is_branch : out std_logic;
             branch_taken : out std_logic;
             result : out word_type;
-            PC_out : out word_type
+            PC_out : out address_type
         );
     end component;
 begin
@@ -153,10 +156,10 @@ begin
         elsif rising_edge(clk) then
             if pc_we then
                 if MEM_branch_taken='1' then
-                    ID_pc <= MEM_instr;
+                    ID_pc <= address_type(MEM_instr);
                     ID_instr <= (others => '0');
                 else
-                    ID_pc <= word_type(unsigned(pc) + 1);
+                    ID_pc <= pc + 1;
                     ID_instr <= instr_data;
                 end if;
             end if;
@@ -241,7 +244,7 @@ begin
     begin
         if reset = '1' then
             MEM_pc <= (others => '0');
-            MEM_branch_taken <= (others => '0');
+            MEM_branch_taken <= '0';
         elsif rising_edge(clk) then
             if data_read_ready='1' then
                 MEM_pc <= EX_pc;

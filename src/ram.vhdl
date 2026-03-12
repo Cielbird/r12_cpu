@@ -12,8 +12,8 @@ entity memory_controller is
 
         we : in std_logic; -- "write enable"
         re : in std_logic; -- "read enable"
-        addr_in : in ram_address;
-        data_bus : inout ram_data;
+        addr_in : in address_type;
+        data_bus : inout word_type;
         ready : out std_logic -- read data ready
         -- no "write ready" signal !
     );
@@ -29,7 +29,7 @@ begin
     begin
         if rising_edge(clk) then
             if we = '1' then
-                memory_data(to_integer(unsigned(addr_in))) <= data_bus;
+                memory_data(to_integer(unsigned(addr_in))) <= data_bus; -- TODO are adresses word level or byte level ? aligment ?
             elsif re = '1' then
                 data_bus <= memory_data(to_integer(unsigned(addr_in)));
                 ready <= '1'; -- always 1 in ideal memory controller

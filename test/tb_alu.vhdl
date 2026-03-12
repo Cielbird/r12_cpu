@@ -48,11 +48,11 @@ begin
         constant case_output : integer) is
     begin
         op <= case_op;
-        a <= std_logic_vector(to_unsigned(case_a, 12));
-        b <= std_logic_vector(to_unsigned(case_b, 12));
+        a <= std_logic_vector(to_signed(case_a, 12));
+        b <= std_logic_vector(to_signed(case_b, 12));
         wait for clk_period;
         wait for clk_period;
-        assert d_out = word_type(to_unsigned(case_output, 12))
+        assert d_out = word_type(to_signed(case_output, 12))
         report alu_op_type'image(op) & " test failed: expected " & integer'image(case_output) & ", got " & integer'image(to_integer(unsigned(d_out)))
             severity error;
     end procedure test_case_alu;
@@ -61,6 +61,8 @@ begin
     test_case_alu(ALU_ADD, 100, 50, 150);
     -- Test ALU_ADD overflow
     test_case_alu(ALU_ADD, 4095, 1, 0);
+    -- Test ALU_ADD negatives
+    test_case_alu(ALU_ADD, -42, 100, 58);
     -- Test ALU_ADD zero
     test_case_alu(ALU_ADD, 0, 0, 0);
 
@@ -68,13 +70,17 @@ begin
     test_case_alu(ALU_SUB, 100, 20, 80);
     -- overflow
     test_case_alu(ALU_SUB, 0, 1, 4095);
+    -- negatives
+    test_case_alu(ALU_SUB, -42, 100, -142);
     -- zero
     test_case_alu(ALU_SUB, 0, 0, 0);
 
     -- test ALU_MUL
     test_case_alu(ALU_MUL, 3, 42, 126);
     -- overflow
-    test_case_alu(ALU_MUL, 10, 2024, 3856);
+    test_case_alu(ALU_MUL, 10, 2024, 1808);
+    -- negatives
+    test_case_alu(ALU_MUL, 10, -2, -20);
     -- zero
     test_case_alu(ALU_MUL, 0, 0, 0);
 
@@ -91,6 +97,8 @@ begin
     test_case_alu(ALU_DIV, 150, 6, 25);
     -- div by 0
     test_case_alu(ALU_DIV, 150, 0, 4095);
+    -- negatives
+    test_case_alu(ALU_DIV, 10, -2, -5);
     -- with remainder
     test_case_alu(ALU_DIV, 150, 7, 21); -- rounds down
 

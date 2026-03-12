@@ -9,7 +9,7 @@ library work;
 use work.processor_pkg.all;
 
 package ram_pkg is
-    type ram_type is array (0 to 2 ** ADDR_WIDTH - 1) of ram_data;
+    type ram_type is array (0 to 2 ** ADDR_WIDTH - 1) of word_type;
 
     -- utility to initialize RAM with data
     impure function init_ram_from_file(filename : string) return ram_type;

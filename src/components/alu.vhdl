@@ -19,13 +19,13 @@ end alu;
 architecture rtl of alu is
 begin
     process (clk)
-        variable a_u12 : unsigned(11 downto 0); -- TODO convert to signed
-        variable b_u12 : unsigned(11 downto 0);
-        variable out_u12 : unsigned(11 downto 0);
+        variable a_u12 : signed(11 downto 0); -- TODO convert to signed
+        variable b_u12 : signed(11 downto 0);
+        variable out_u12 : signed(11 downto 0);
     begin
         if rising_edge(clk) then
-            a_u12 := unsigned(a);
-            b_u12 := unsigned(b);
+            a_u12 := signed(a);
+            b_u12 := signed(b);
             case op is
                 when ALU_ADD =>
                     out_u12 := a_u12 + b_u12;
@@ -42,13 +42,13 @@ begin
                 when ALU_NOT =>
                     out_u12 := not a_u12;
                 when ALU_DIV =>
-                    if b_u12 /= to_unsigned(0, 12) then
+                    if b_u12 /= to_signed(0, 12) then
                         out_u12 := a_u12 / b_u12;
                     else
                         out_u12 := (others => '1'); -- TODO generate error signal
                     end if;
                 when ALU_MOD =>
-                    if b_u12 /= to_unsigned(0, 12) then
+                    if b_u12 /= to_signed(0, 12) then
                         out_u12 := a_u12 mod b_u12;
                     else
                         out_u12 := (others => '0');
