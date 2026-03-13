@@ -13,13 +13,13 @@ entity processor_top is
         reset : in std_logic;
 
         -- instructions bus - read-only
-        instr_addr : out address_type;
+        instr_addr : out address_type := (others => '0');
         instr_data : in word_type;
         -- data bus - read/write
-        data_we : out std_logic; -- "data write enable"
-        data_re : out std_logic; -- "data read enable"
-        data_addr : out address_type;
-        data_bus : inout word_type;
+        data_we : out std_logic := '0'; -- "data write enable"
+        data_re : out std_logic := '0'; -- "data read enable"
+        data_addr : out address_type := (others => '0');
+        data_bus : inout word_type := (others => 'Z');
         data_read_ready : in std_logic
     );
 end processor_top;
@@ -32,30 +32,30 @@ architecture rtl of processor_top is
     signal stall_flag : std_logic := '0';
 
     -- decode stage
-    signal ID_pc : address_type;
+    signal ID_pc : address_type := (others => '0');
     signal ID_instr : word_type := (others => '0');
     signal ID_rs1_used : std_logic := '0';
     signal ID_rs2_used : std_logic := '0';
     signal ID_rs1 : std_logic_vector(1 downto 0); -- "address" in reg bank for rs1/rs
     signal ID_rs2 : std_logic_vector(1 downto 0); -- "address" in reg bank for rs2
 
-    signal ID_rs1_val : word_type; -- value from register rs1
-    signal ID_rs2_val : word_type; -- value from register rs2
+    signal ID_rs1_val : word_type := (others => '0'); -- value from register rs1
+    signal ID_rs2_val : word_type := (others => '0'); -- value from register rs2
 
-    -- execute stage
+    -- execute stage (EX)
     signal EX_pc : address_type;
     signal EX_pc_out : address_type; -- PC after branching logic
     signal EX_branch_taken : std_logic := '0';
-    signal EX_branch_unit_result : word_type;
+    signal EX_branch_unit_result : word_type := (others => '0');
     signal EX_is_branch : std_logic;
     signal EX_instr : word_type := (others => '0');
     signal EX_rd_used : std_logic := '0';
     signal EX_instr_is_ld : std_logic := '0';
     signal EX_rd : std_logic_vector(1 downto 0); -- "address" in reg bank for rd
-    signal EX_rs1_val : word_type; -- value from register rs1, at EX stage
-    signal EX_rs2_val : word_type; -- value from register rs2, at EX stage
+    signal EX_rs1_val : word_type := (others => '0'); -- value from register rs1, at EX stage
+    signal EX_rs2_val : word_type := (others => '0'); -- value from register rs2, at EX stage
 
-    -- mem writeback stage
+    -- mem access stage (MEM)
     signal MEM_pc : address_type;
     signal MEM_instr : word_type;
     signal MEM_instr_is_sd : std_logic;
@@ -63,6 +63,15 @@ architecture rtl of processor_top is
     signal MEM_branch_taken : std_logic := '0';
     signal MEM_result : word_type;
     signal MEM_write_data : word_type;
+
+    -- register writeback stage (WB)
+    signal WB_instr : word_type;
+    signal WB_result : word_type;
+    signal WB_load : word_type;
+    signal WB_rd : std_logic_vector(1 downto 0);
+    signal WB_instr_is_ld : std_logic;
+    signal WB_instr_is_sd : std_logic;
+    signal WB_instr_bz_or_bnz : std_logic;
 
     -- register bank signals
     signal rd_to_regs : std_logic_vector(1 downto 0); -- "address" in reg bank for rd
@@ -121,8 +130,7 @@ architecture rtl of processor_top is
         port (
             instruction : in word_type;
             PC_in : in address_type;
-            A : in word_type;
-            is_branch : out std_logic;
+            rs1_val : in word_type;
             branch_taken : out std_logic;
             result : out word_type;
             PC_out : out address_type
@@ -215,7 +223,7 @@ begin
     port map(
         instruction => EX_instr,
         PC_in => EX_pc,
-        A => EX_rs1_val,
+        rs1_val => EX_rs1_val,
         branch_taken => EX_branch_taken,
         result => EX_branch_unit_result,
         PC_out => EX_pc_out
@@ -264,6 +272,7 @@ begin
         instruction => MEM_instr,
         instr_is_sd => MEM_instr_is_sd,
         instr_is_ld => MEM_instr_is_ld,
+        instr_bz_or_bnz => open,
         instr_is_branch => open,
         is_nop => open,
         rs1_used => open,
@@ -277,7 +286,7 @@ begin
         '0';
     data_re <= '1' when MEM_instr_is_ld else
         '0';
-    data_addr <= MEM_result;
+    data_addr <= address_type(MEM_result);
     data_bus <= MEM_write_data when MEM_instr_is_sd else
         (others => 'Z');
 
@@ -306,8 +315,9 @@ begin
     WB_instr_logic : instr_logic
     port map(
         instruction => WB_instr,
-        instr_is_sd => open,
+        instr_is_sd => WB_instr_is_sd,
         instr_is_ld => WB_instr_is_ld,
+        instr_bz_or_bnz => WB_instr_bz_or_bnz,
         instr_is_branch => open,
         is_nop => open,
         rs1_used => open,
@@ -337,6 +347,7 @@ begin
     registers_we <= '1' when -- writeback by default
         (WB_instr_is_sd = '0' and -- sd doesn't write to registers
         WB_instr_bz_or_bnz = '0' and -- bz and bnz don't write to registers
-        not WB_instr = (others => '0')) else -- nop doesn't write to registers
+        -- TODO put is_nop in instruction_logic
+        not (WB_instr(11 downto 8)="0000" and WB_instr(1 downto 0)="00")) else -- nop doesn't write to registers
         '0';
 end rtl;

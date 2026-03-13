@@ -8,12 +8,12 @@ use work.processor_pkg.all;
 entity branch_unit is
     port(
         instruction : in word_type;
-        PC_in : in word_type;
+        PC_in : in address_type;
         rs1_val : in word_type;
 
         branch_taken : out std_logic;
         result : out word_type;
-        PC_out : out word_type
+        PC_out : out address_type
     );
 end branch_unit;
 
