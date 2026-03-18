@@ -42,7 +42,8 @@ begin
 
     process (clk)
     begin
-        if rising_edge(clk) and we = '1' then
+        -- falling edge pour que registre soit a jour au milieu du stade WB
+        if falling_edge(clk) and we = '1' then
             case rd is
                 when "00" => reg0 <= rd_val_in;
                 when "01" => reg1 <= rd_val_in;

@@ -43,6 +43,7 @@ architecture rtl of processor_top is
     signal ID_rs2_used : std_logic := '0';
     signal ID_rs1 : std_logic_vector(1 downto 0); -- "address" in reg bank for rs1/rs
     signal ID_rs2 : std_logic_vector(1 downto 0); -- "address" in reg bank for rs2
+    signal ID_imm : signed(11 downto 0);
 
     signal ID_rs1_val : word_type := (others => '0'); -- value from register rs1
     signal ID_rs2_val : word_type := (others => '0'); -- value from register rs2
@@ -88,6 +89,8 @@ architecture rtl of processor_top is
     --  signals to alu
     signal alu_enable : std_logic;
     signal alu_op : alu_op_type;
+    signal alu_a_in : word_type;
+    signal alu_b_in : word_type;
     signal alu_out : word_type;
 
     component alu is
@@ -127,7 +130,8 @@ architecture rtl of processor_top is
             rd_used : out std_logic;
             rs1 : out std_logic_vector(1 downto 0);
             rs2 : out std_logic_vector(1 downto 0);
-            rd : out std_logic_vector(1 downto 0)
+            rd : out std_logic_vector(1 downto 0);
+            imm : out signed(11 downto 0)
         );
     end component;
 
@@ -185,10 +189,37 @@ begin
         rd_used => open,
         rs1 => ID_rs1,
         rs2 => ID_rs2,
-        rd => open
+        rd => open,
+        imm => ID_imm
     );
 
     instr_addr <= ID_pc;
+
+    -- ALU decoding
+    alu_enable <= '1';
+    alu_op <= ALU_ADD when ID_instr(11 downto 8) = "0000" and ID_instr(1 downto 0) = "01" else
+        ALU_SUB when ID_instr(11 downto 8) = "0000" and ID_instr(1 downto 0) = "10" else
+        ALU_MUL when ID_instr(11 downto 8) = "0000" and ID_instr(1 downto 0) = "11" else
+        ALU_DIV when ID_instr(11 downto 8) = "0001" and ID_instr(1 downto 0) = "00" else
+        ALU_MOD when ID_instr(11 downto 8) = "0001" and ID_instr(1 downto 0) = "01" else
+        ALU_AND when ID_instr(11 downto 8) = "0001" and ID_instr(1 downto 0) = "10" else
+        ALU_OR when ID_instr(11 downto 8) = "0001" and ID_instr(1 downto 0) = "11" else
+        ALU_XOR when ID_instr(11 downto 8) = "0010" and ID_instr(1 downto 0) = "00" else
+        ALU_NOT when ID_instr(11 downto 8) = "0010" and ID_instr(1 downto 0) = "11" else
+        ALU_ADD when ID_instr(11 downto 8) = "0011" else
+        ALU_SUB when ID_instr(11 downto 8) = "0100" else
+        ALU_MUL when ID_instr(11 downto 8) = "0101" else
+        ALU_DIV when ID_instr(11 downto 8) = "0110" else
+        ALU_MOD when ID_instr(11 downto 8) = "0111" else
+        ALU_SLL when ID_instr(11 downto 8) = "1000" else
+        ALU_SRL when ID_instr(11 downto 8) = "1001" else
+        ALU_ADD; -- ld, sd, jal, jalr, bn, bnz need add. nop and undefined : not important
+
+    alu_a_in <= ID_rs1_val when to_integer(unsigned(ID_instr(11 downto 8))) < 13 else
+        word_type(ID_pc); -- TODO maybe offset needed
+
+    alu_b_in <= word_type(ID_imm) when to_integer(unsigned(ID_instr(11 downto 8))) > 2 else
+        ID_rs2_val;
 
     process (clk, reset)
     begin
@@ -224,9 +255,11 @@ begin
         rd_used => open,
         rs1 => open,
         rs2 => open,
-        rd => EX_rd
+        rd => EX_rd,
+        imm => open
     );
 
+    -- TODO implement forwarding
     bu1 : branch_unit
     port map(
         instruction => EX_instr,
@@ -242,8 +275,8 @@ begin
         clk => clk,
         enable => alu_enable,
         op => alu_op,
-        a => EX_rs1_val, -- TODO implement forwarding
-        b => EX_rs2_val,
+        a => alu_a_in,
+        b => alu_b_in,
         d_out => alu_out
     );
 
@@ -289,7 +322,8 @@ begin
         rd_used => open,
         rs1 => open,
         rs2 => open,
-        rd => open
+        rd => open,
+        imm => open
     );
     data_we <= '1' when MEM_instr_is_sd else
         '0';
@@ -309,16 +343,10 @@ begin
                 WB_instr <= MEM_instr;
                 WB_result <= MEM_result;
                 WB_load <= data_in; -- data from RAM
-
-                if EX_is_branch = '1' then
-                    MEM_result <= EX_branch_unit_result;
-                else
-                    MEM_result <= alu_out;
-                end if;
-
             end if;
         end if;
     end process;
+
     -- register writeback stage (WB)
     WB_instr_logic : instr_logic
     port map(
@@ -333,7 +361,8 @@ begin
         rd_used => open,
         rs1 => open,
         rs2 => open,
-        rd => WB_rd
+        rd => WB_rd,
+        imm => open
     );
 
     registers : register_bank

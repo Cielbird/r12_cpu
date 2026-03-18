@@ -12,10 +12,11 @@ entity alu is
         op : in alu_op_type;
         a : in word_type;
         b : in word_type;
-        d_out : out word_type
+        d_out : out word_type := (others => '0')
     );
 end alu;
 
+-- one cycle all ops
 architecture rtl of alu is
 begin
     process (clk)
