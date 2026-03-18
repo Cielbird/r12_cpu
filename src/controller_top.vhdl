@@ -20,8 +20,9 @@ entity controller_top is
         -- Data bus access (to know what's happening inside...)
         data_we : out std_logic := '0';
         data_re : out std_logic := '0';
-        data_addr_bus : out address_type := (others => '0');
-        data_bus : out word_type := (others => '0');
+        data_addr : out address_type := (others => '0');
+        data_proc_to_ram : out word_type := (others => '0');
+        data_ram_to_proc : out word_type := (others => '0');
         data_ready : out std_logic := '0'
     );
 end controller_top;
@@ -36,7 +37,8 @@ architecture rtl of controller_top is
             data_we : out std_logic;
             data_re : out std_logic;
             data_addr : out address_type;
-            data_bus : inout word_type;
+            data_in : in word_type;
+            data_out : out word_type;
             data_read_ready : in std_logic
         );
     end component;
@@ -47,17 +49,21 @@ architecture rtl of controller_top is
         );
         port (
             clk : in std_logic;
+            reset : in std_logic;
             we : in std_logic;
             re : in std_logic;
             addr_in : in address_type;
-            data_bus : inout word_type;
+            data_in : in word_type;
+            data_out : out word_type;
             ready : out std_logic
         );
     end component;
 
     signal clk : std_logic; -- stops if halted
-    signal instr_addr_bus : address_type;
-    signal instr_data_bus : word_type;
+    signal data_proc_to_ram_signal : word_type;
+    signal data_ram_to_proc_signal : word_type;
+    signal instr_addr : address_type;
+    signal instr_data : word_type;
     
 begin
 
@@ -65,12 +71,13 @@ begin
     port map(
         clk => clk,
         reset => reset,
-        instr_addr => instr_addr_bus,
-        instr_data => instr_data_bus,
+        instr_addr => instr_addr,
+        instr_data => instr_data,
         data_we => data_we,
         data_re => data_re,
-        data_addr => data_addr_bus,
-        data_bus => data_bus,
+        data_addr => data_addr,
+        data_in => data_ram_to_proc_signal,
+        data_out => data_proc_to_ram_signal,
         data_read_ready => data_ready);
 
     data_mem : memory_controller
@@ -79,10 +86,12 @@ begin
     )
     port map(
         clk => clk,
+        reset => reset,
         we => data_we,
         re => data_re,
-        addr_in => data_addr_bus,
-        data_bus => data_bus,
+        addr_in => data_addr,
+        data_in => data_proc_to_ram_signal,
+        data_out => data_ram_to_proc_signal,
         ready => data_ready
     );
 
@@ -92,14 +101,18 @@ begin
     )
     port map(
         clk => clk,
+        reset => reset,
         we => '0',
         re => '1',
-        addr_in => instr_addr_bus,
-        data_bus => instr_data_bus,
+        addr_in => instr_addr,
+        data_in => to_word(x"000"),
+        data_out => instr_data,
         ready => open -- suppose instant instr memory...
     );
 
     clk <= clk_in when halt='0' else '0';
+    data_proc_to_ram <= data_proc_to_ram_signal;
+    data_ram_to_proc <= data_ram_to_proc_signal;
 
     halt_proc : process (clk, reset)
     begin
@@ -107,7 +120,7 @@ begin
             halt <= '0';
         elsif rising_edge(clk) then
             -- HALTING CONDITION : writing x458 at xFFF
-            if data_we='1' and data_addr_bus=x"FFF" and data_bus=x"458" then
+            if data_we='1' and data_addr=x"FFF" and data_proc_to_ram_signal=x"458" then
                 halt <= '1';
             end if;
         end if;

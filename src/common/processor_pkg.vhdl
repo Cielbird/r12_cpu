@@ -33,6 +33,7 @@ package processor_pkg is
     );
 
     function to_word(s: std_logic_vector) return word_type;
+    function to_address(i: integer) return address_type;
 end package processor_pkg;
 
 package body processor_pkg is
@@ -40,5 +41,10 @@ package body processor_pkg is
     function to_word(s : std_logic_vector) return word_type is
     begin
         return word_type(s);
+    end function;
+
+    function to_address(i : integer) return address_type is
+    begin
+        return address_type(to_unsigned(i, 12));
     end function;
 end package body;

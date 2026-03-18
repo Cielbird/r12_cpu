@@ -19,17 +19,22 @@ entity processor_top is
         data_we : out std_logic := '0'; -- "data write enable"
         data_re : out std_logic := '0'; -- "data read enable"
         data_addr : out address_type := (others => '0');
-        data_bus : inout word_type := (others => 'Z');
+        data_in : in word_type;
+        data_out : out word_type := (others => '0');
         data_read_ready : in std_logic
     );
 end processor_top;
 
 architecture rtl of processor_top is
     signal pc : address_type := (others => '0');
-    signal instr : word_type := (others => '0');
-
     signal pc_we : std_logic := '0'; -- program counter write enable
     signal stall_flag : std_logic := '0';
+
+    -- 1 when data isn't ready from memory and stalling necessary. 0 otherwise
+    signal data_reading_flag : std_logic := '0';
+
+    -- fetch stage (IF)
+    signal IF_instr : word_type := (others => '0');
 
     -- decode stage
     signal ID_pc : address_type := (others => '0');
@@ -57,7 +62,7 @@ architecture rtl of processor_top is
 
     -- mem access stage (MEM)
     signal MEM_pc : address_type;
-    signal MEM_instr : word_type;
+    signal MEM_instr : word_type := (others => '0');
     signal MEM_instr_is_sd : std_logic;
     signal MEM_instr_is_ld : std_logic;
     signal MEM_branch_taken : std_logic := '0';
@@ -147,6 +152,7 @@ begin
         '0';
 
     -- instruction fetch stage (IF)
+    IF_instr <= instr_data;
     process (clk, reset)
     begin
         if reset = '1' then
@@ -155,10 +161,10 @@ begin
         elsif rising_edge(clk) then
             if pc_we then
                 if MEM_branch_taken = '1' then
-                    ID_pc <= address_type(MEM_instr);
+                    ID_pc <= MEM_pc;
                     ID_instr <= (others => '0');
                 else
-                    ID_pc <= pc + 1;
+                    ID_pc <= ID_pc + 1;
                     ID_instr <= instr_data;
                 end if;
             end if;
@@ -181,6 +187,8 @@ begin
         rs2 => ID_rs2,
         rd => open
     );
+
+    instr_addr <= ID_pc;
 
     process (clk, reset)
     begin
@@ -244,6 +252,7 @@ begin
         if reset = '1' then
             MEM_pc <= (others => '0');
             MEM_branch_taken <= '0';
+            MEM_write_data <= to_word(x"000");
         elsif rising_edge(clk) then
             if data_read_ready = '1' then
                 MEM_pc <= EX_pc;
@@ -287,8 +296,7 @@ begin
     data_re <= '1' when MEM_instr_is_ld else
         '0';
     data_addr <= address_type(MEM_result);
-    data_bus <= MEM_write_data when MEM_instr_is_sd else
-        (others => 'Z');
+    data_out <= MEM_write_data; -- data to RAM
 
     process (clk, reset)
     begin
@@ -300,7 +308,7 @@ begin
             if data_read_ready = '1' then
                 WB_instr <= MEM_instr;
                 WB_result <= MEM_result;
-                WB_load <= data_bus; -- data from RAM
+                WB_load <= data_in; -- data from RAM
 
                 if EX_is_branch = '1' then
                     MEM_result <= EX_branch_unit_result;
@@ -348,6 +356,6 @@ begin
         (WB_instr_is_sd = '0' and -- sd doesn't write to registers
         WB_instr_bz_or_bnz = '0' and -- bz and bnz don't write to registers
         -- TODO put is_nop in instruction_logic
-        not (WB_instr(11 downto 8)="0000" and WB_instr(1 downto 0)="00")) else -- nop doesn't write to registers
+        not (WB_instr(11 downto 8) = "0000" and WB_instr(1 downto 0) = "00")) else -- nop doesn't write to registers
         '0';
 end rtl;

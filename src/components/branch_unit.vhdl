@@ -35,7 +35,7 @@ begin
 
     -- it is signed, but for addition doesn't matter
     imm <= unsigned("000000" & instruction(5 downto 0));
-    PC_plus_imm <= unsigned(PC_in) + imm;
+    PC_plus_imm <= unsigned(PC_in) + imm - to_unsigned(1, 12); -- PC_new = PC_old + imm - 1
     rs1_plus_imm <= unsigned(rs1_val) + imm;
 
     result <= word_type(PC_plus_imm) when opcode>=13 else word_type(rs1_plus_imm);

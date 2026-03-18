@@ -12,11 +12,13 @@ entity memory_controller is
     );
     port (
         clk : in std_logic;
+        reset : in std_logic;
 
         we : in std_logic; -- "write enable"
         re : in std_logic; -- "read enable"
         addr_in : in address_type;
-        data_bus : inout word_type := (others => 'Z');
+        data_in : in word_type;
+        data_out : out word_type := (others => '0');
         ready : out std_logic := '0' -- read data ready
         -- no "write ready" signal !
     );
@@ -35,27 +37,23 @@ architecture ideal of memory_controller is
         end if;
     end function;
 
-    signal read_data : word_type := (others => '0');
     signal memory_data : memory_type := init_memory;
 
 begin
-    process (clk)
+    process (clk, we, data_in)
     begin
-        if rising_edge(clk) then
-            if re = '1' then
-                read_data <= memory_data(to_integer(unsigned(addr_in)));
-                ready <= '1';
-            elsif ready = '1' then
-                ready <= '0'; -- data is output on one clock signal
-            elsif we = '1' then
-                memory_data(to_integer(unsigned(addr_in))) <= data_bus; -- TODO are adresses word level or byte level ? aligment ?
+        ready <= '1'; -- this one is always ready
+        if reset='1' then
+            data_out <= to_word(x"000");
+        elsif rising_edge(clk) then
+            if we = '1' then
+                memory_data(to_integer(unsigned(addr_in))) <= data_in; -- adresses are word-space
             end if;
         end if;
+
+        -- reading is 0-tick, async
+        if re = '1' then
+            data_out <= memory_data(to_integer(unsigned(addr_in)));
+        end if;
     end process;
-
-    -- release bus when not reading
-    data_bus <= read_data when ready = '1' else (others => 'Z');
-
 end ideal;
-
--- signal ram : memory_type := init_memory_from_file("program.hex");
