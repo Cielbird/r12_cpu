@@ -39,45 +39,39 @@ architecture rtl of processor_top is
     -- decode stage
     signal ID_pc : address_type := (others => '0');
     signal ID_instr : word_type := (others => '0');
-    signal ID_rs1_used : std_logic := '0';
-    signal ID_rs2_used : std_logic := '0';
-    signal ID_rs1 : std_logic_vector(1 downto 0); -- "address" in reg bank for rs1/rs
-    signal ID_rs2 : std_logic_vector(1 downto 0); -- "address" in reg bank for rs2
-    signal ID_imm : signed(11 downto 0);
-
+    signal ID_instr_info : instruction_info;
     signal ID_rs1_val : word_type := (others => '0'); -- value from register rs1
     signal ID_rs2_val : word_type := (others => '0'); -- value from register rs2
 
     -- execute stage (EX)
     signal EX_pc : address_type;
+    signal EX_instr : word_type := (others => '0');
+    signal EX_instr_info : instruction_info;
     signal EX_pc_out : address_type; -- PC after branching logic
     signal EX_branch_taken : std_logic := '0';
     signal EX_branch_unit_result : word_type := (others => '0');
-    signal EX_is_branch : std_logic;
-    signal EX_instr : word_type := (others => '0');
-    signal EX_rd_used : std_logic := '0';
-    signal EX_instr_is_ld : std_logic := '0';
-    signal EX_rd : std_logic_vector(1 downto 0); -- "address" in reg bank for rd
     signal EX_rs1_val : word_type := (others => '0'); -- value from register rs1, at EX stage
     signal EX_rs2_val : word_type := (others => '0'); -- value from register rs2, at EX stage
+    signal EX_fw_rs1_val : word_type;
+    signal EX_fw_rs2_val : word_type;
+    signal forward_a_from_mem : std_logic;
+    signal forward_b_from_mem : std_logic;
+    signal forward_a_from_wb : std_logic;
+    signal forward_b_from_wb : std_logic;
 
     -- mem access stage (MEM)
     signal MEM_pc : address_type;
     signal MEM_instr : word_type := (others => '0');
-    signal MEM_instr_is_sd : std_logic;
-    signal MEM_instr_is_ld : std_logic;
+    signal MEM_instr_info : instruction_info;
     signal MEM_branch_taken : std_logic := '0';
     signal MEM_result : word_type;
     signal MEM_write_data : word_type;
 
     -- register writeback stage (WB)
     signal WB_instr : word_type;
+    signal WB_instr_info : instruction_info;
     signal WB_result : word_type;
     signal WB_load : word_type;
-    signal WB_rd : std_logic_vector(1 downto 0);
-    signal WB_instr_is_ld : std_logic;
-    signal WB_instr_is_sd : std_logic;
-    signal WB_instr_bz_or_bnz : std_logic;
 
     -- register bank signals
     signal rd_to_regs : std_logic_vector(1 downto 0); -- "address" in reg bank for rd
@@ -120,18 +114,7 @@ architecture rtl of processor_top is
     component instr_logic is
         port (
             instruction : in word_type;
-            instr_is_sd : out std_logic;
-            instr_is_ld : out std_logic;
-            instr_bz_or_bnz : out std_logic;
-            instr_is_branch : out std_logic;
-            is_nop : out std_logic;
-            rs1_used : out std_logic;
-            rs2_used : out std_logic;
-            rd_used : out std_logic;
-            rs1 : out std_logic_vector(1 downto 0);
-            rs2 : out std_logic_vector(1 downto 0);
-            rd : out std_logic_vector(1 downto 0);
-            imm : out signed(11 downto 0)
+            info : out instruction_info
         );
     end component;
 
@@ -145,14 +128,26 @@ architecture rtl of processor_top is
             PC_out : out address_type
         );
     end component;
+
+    component forwarding_unit is
+        port (
+            EX_instr_info : in instruction_info;
+            MEM_instr_info : in instruction_info;
+            WB_instr_info : in instruction_info;
+            forward_a_from_mem : out std_logic;
+            forward_b_from_mem : out std_logic;
+            forward_a_from_wb : out std_logic;
+            forward_b_from_wb : out std_logic
+        );
+    end component;
 begin
 
     pc_we <= '1' when data_read_ready = '1' and stall_flag = '0' else
         '0';
 
-    stall_flag <= '1' when (((ID_rs1_used = '1' and EX_rd_used = '1' and (ID_rs1 = EX_rd))
-        or (ID_rs2_used = '1' and EX_rd_used = '1' and (ID_rs2 = EX_rd)))
-        and EX_instr_is_ld = '1') else
+    stall_flag <= '1' when (((ID_instr_info.is_rs1_used = '1' and EX_instr_info.is_rd_used = '1' and (ID_instr_info.rs1 = EX_instr_info.rd))
+        or (ID_instr_info.is_rs2_used = '1' and EX_instr_info.is_rd_used = '1' and (ID_instr_info.rs2 = EX_instr_info.rd)))
+        and EX_instr_info.is_ld = '1') else
         '0';
 
     -- instruction fetch stage (IF)
@@ -179,47 +174,10 @@ begin
     ID_instr_logic : instr_logic
     port map(
         instruction => ID_instr,
-        instr_is_sd => open,
-        instr_is_ld => open,
-        instr_bz_or_bnz => open,
-        instr_is_branch => open,
-        is_nop => open,
-        rs1_used => ID_rs1_used,
-        rs2_used => ID_rs2_used,
-        rd_used => open,
-        rs1 => ID_rs1,
-        rs2 => ID_rs2,
-        rd => open,
-        imm => ID_imm
+        info => ID_instr_info
     );
 
     instr_addr <= ID_pc;
-
-    -- ALU decoding
-    alu_enable <= '1';
-    alu_op <= ALU_ADD when ID_instr(11 downto 8) = "0000" and ID_instr(1 downto 0) = "01" else
-        ALU_SUB when ID_instr(11 downto 8) = "0000" and ID_instr(1 downto 0) = "10" else
-        ALU_MUL when ID_instr(11 downto 8) = "0000" and ID_instr(1 downto 0) = "11" else
-        ALU_DIV when ID_instr(11 downto 8) = "0001" and ID_instr(1 downto 0) = "00" else
-        ALU_MOD when ID_instr(11 downto 8) = "0001" and ID_instr(1 downto 0) = "01" else
-        ALU_AND when ID_instr(11 downto 8) = "0001" and ID_instr(1 downto 0) = "10" else
-        ALU_OR when ID_instr(11 downto 8) = "0001" and ID_instr(1 downto 0) = "11" else
-        ALU_XOR when ID_instr(11 downto 8) = "0010" and ID_instr(1 downto 0) = "00" else
-        ALU_NOT when ID_instr(11 downto 8) = "0010" and ID_instr(1 downto 0) = "11" else
-        ALU_ADD when ID_instr(11 downto 8) = "0011" else
-        ALU_SUB when ID_instr(11 downto 8) = "0100" else
-        ALU_MUL when ID_instr(11 downto 8) = "0101" else
-        ALU_DIV when ID_instr(11 downto 8) = "0110" else
-        ALU_MOD when ID_instr(11 downto 8) = "0111" else
-        ALU_SLL when ID_instr(11 downto 8) = "1000" else
-        ALU_SRL when ID_instr(11 downto 8) = "1001" else
-        ALU_ADD; -- ld, sd, jal, jalr, bn, bnz need add. nop and undefined : not important
-
-    alu_a_in <= ID_rs1_val when to_integer(unsigned(ID_instr(11 downto 8))) < 13 else
-        word_type(ID_pc); -- TODO maybe offset needed
-
-    alu_b_in <= word_type(ID_imm) when to_integer(unsigned(ID_instr(11 downto 8))) > 2 else
-        ID_rs2_val;
 
     process (clk, reset)
     begin
@@ -234,41 +192,78 @@ begin
 
                 if (MEM_branch_taken = '1' or stall_flag = '1') then
                     EX_instr <= (others => '0');
+                    EX_instr_info <= NOP_INSTR_INFO;
                 else
                     EX_instr <= ID_instr;
+                    EX_instr_info <= ID_instr_info;
                 end if;
             end if;
         end if;
     end process;
 
     -- execute stage (EX)
-    EX_instr_logic : instr_logic
-    port map(
-        instruction => EX_instr,
-        instr_is_sd => open,
-        instr_is_ld => EX_instr_is_ld,
-        instr_bz_or_bnz => open,
-        instr_is_branch => EX_is_branch,
-        is_nop => open,
-        rs1_used => open,
-        rs2_used => open,
-        rd_used => open,
-        rs1 => open,
-        rs2 => open,
-        rd => EX_rd,
-        imm => open
-    );
-
-    -- TODO implement forwarding
     bu1 : branch_unit
     port map(
         instruction => EX_instr,
         PC_in => EX_pc,
-        rs1_val => EX_rs1_val,
+        rs1_val => EX_fw_rs1_val,
         branch_taken => EX_branch_taken,
         result => EX_branch_unit_result,
         PC_out => EX_pc_out
     );
+
+    -- ALU control
+    alu_enable <= '1';
+    with EX_instr_info.opcode select alu_op <=
+    ALU_ADD when OP_NOP,
+    ALU_ADD when OP_ADD,
+    ALU_SUB when OP_SUB,
+    ALU_MUL when OP_MULT,
+    ALU_DIV when OP_DIV,
+    ALU_MOD when OP_MOD,
+    ALU_AND when OP_AND,
+    ALU_OR when OP_OR,
+    ALU_XOR when OP_XOR,
+    ALU_NOT when OP_NOT,
+    ALU_ADD when OP_ADDI,
+    ALU_SUB when OP_SUBI,
+    ALU_MUL when OP_MULTI,
+    ALU_DIV when OP_DIVI,
+    ALU_MOD when OP_MODI,
+    ALU_SLL when OP_SHLI,
+    ALU_SRL when OP_SHRI,
+    ALU_ADD when OP_LD,
+    ALU_ADD when OP_SD,
+    ALU_ADD when OP_JAL,
+    ALU_ADD when OP_JALR,
+    ALU_ADD when OP_BZ,
+    ALU_ADD when OP_BNZ;
+    -- forwarding logic
+    fu1 : forwarding_unit
+    port map(
+        EX_instr_info => EX_instr_info,
+        MEM_instr_info => MEM_instr_info,
+        WB_instr_info => WB_instr_info,
+        forward_a_from_mem => forward_a_from_mem,
+        forward_b_from_mem => forward_b_from_mem,
+        forward_a_from_wb => forward_a_from_wb,
+        forward_b_from_wb => forward_b_from_wb
+    );
+
+    -- forwarded value : may come from another stage
+    EX_fw_rs1_val <= MEM_result when forward_a_from_mem else -- forward from mem takes priority
+        WB_result when forward_a_from_wb else
+        EX_rs1_val;
+    EX_fw_rs2_val <= MEM_result when forward_b_from_mem else -- same with rs2
+        WB_result when forward_b_from_wb else
+        EX_rs2_val;
+
+    -- jal, bnz, or bz use PC for alu input A
+    alu_a_in <= EX_fw_rs1_val when to_integer(unsigned(EX_instr(11 downto 8))) < 13 else
+        word_type(EX_pc); -- TODO maybe offset needed
+
+    alu_b_in <= EX_fw_rs2_val when to_integer(unsigned(EX_instr(11 downto 8))) <= 2 else
+        word_type(EX_instr_info.imm);
 
     alu1 : alu
     port map(
@@ -291,14 +286,16 @@ begin
                 MEM_pc <= EX_pc;
                 if MEM_branch_taken = '1' then
                     MEM_instr <= (others => '0');
+                    MEM_instr_info <= NOP_INSTR_INFO;
                 else
                     MEM_instr <= EX_instr;
+                    MEM_instr_info <= EX_instr_info;
                 end if;
 
                 MEM_write_data <= EX_rs2_val;
                 MEM_branch_taken <= EX_branch_taken;
 
-                if EX_is_branch = '1' then
+                if EX_instr_info.is_branch = '1' then
                     MEM_result <= EX_branch_unit_result;
                 else
                     MEM_result <= alu_out;
@@ -309,25 +306,9 @@ begin
     end process;
 
     -- memory access stage (MEM)
-    MEM_instr_logic : instr_logic
-    port map(
-        instruction => MEM_instr,
-        instr_is_sd => MEM_instr_is_sd,
-        instr_is_ld => MEM_instr_is_ld,
-        instr_bz_or_bnz => open,
-        instr_is_branch => open,
-        is_nop => open,
-        rs1_used => open,
-        rs2_used => open,
-        rd_used => open,
-        rs1 => open,
-        rs2 => open,
-        rd => open,
-        imm => open
-    );
-    data_we <= '1' when MEM_instr_is_sd else
+    data_we <= '1' when MEM_instr_info.is_sd = '1' else
         '0';
-    data_re <= '1' when MEM_instr_is_ld else
+    data_re <= '1' when MEM_instr_info.is_ld = '1' else
         '0';
     data_addr <= address_type(MEM_result);
     data_out <= MEM_write_data; -- data to RAM
@@ -336,11 +317,15 @@ begin
     begin
         if reset = '1' then
             WB_instr <= (others => '0');
+            WB_instr_info <= NOP_INSTR_INFO;
+
             WB_result <= (others => '0');
             WB_load <= (others => '0');
         elsif rising_edge(clk) then
             if data_read_ready = '1' then
                 WB_instr <= MEM_instr;
+                WB_instr_info <= MEM_instr_info;
+
                 WB_result <= MEM_result;
                 WB_load <= data_in; -- data from RAM
             end if;
@@ -348,28 +333,11 @@ begin
     end process;
 
     -- register writeback stage (WB)
-    WB_instr_logic : instr_logic
-    port map(
-        instruction => WB_instr,
-        instr_is_sd => WB_instr_is_sd,
-        instr_is_ld => WB_instr_is_ld,
-        instr_bz_or_bnz => WB_instr_bz_or_bnz,
-        instr_is_branch => open,
-        is_nop => open,
-        rs1_used => open,
-        rs2_used => open,
-        rd_used => open,
-        rs1 => open,
-        rs2 => open,
-        rd => WB_rd,
-        imm => open
-    );
-
     registers : register_bank
     port map(
         clk => clk,
-        rs1 => ID_rs1,
-        rs2 => ID_rs2,
+        rs1 => ID_instr_info.rs1,
+        rs2 => ID_instr_info.rs2,
         rs1_val_out => ID_rs1_val,
         rs2_val_out => ID_rs2_val,
         we => registers_we,
@@ -377,13 +345,13 @@ begin
         rd_val_in => rd_val_to_regs
     );
 
-    rd_to_regs <= WB_rd;
-    rd_val_to_regs <= WB_load when WB_instr_is_ld else
+    rd_to_regs <= WB_instr_info.rd;
+    rd_val_to_regs <= WB_load when WB_instr_info.is_ld else
         WB_result;
 
     registers_we <= '1' when -- writeback by default
-        (WB_instr_is_sd = '0' and -- sd doesn't write to registers
-        WB_instr_bz_or_bnz = '0' and -- bz and bnz don't write to registers
+        (WB_instr_info.is_sd = '0' and -- sd doesn't write to registers
+        WB_instr_info.is_bz_or_bnz = '0' and -- bz and bnz don't write to registers
         -- TODO put is_nop in instruction_logic
         not (WB_instr(11 downto 8) = "0000" and WB_instr(1 downto 0) = "00")) else -- nop doesn't write to registers
         '0';

@@ -9,18 +9,7 @@ use work.processor_pkg.all;
 entity instr_logic is
     port (
         instruction : in word_type;
-        instr_is_sd : out std_logic;
-        instr_is_ld : out std_logic;
-        instr_bz_or_bnz : out std_logic;
-        instr_is_branch : out std_logic; -- 1 if is branching instruction : {bz, bnz, jal, jalr}
-        is_nop : out std_logic;
-        rs1_used : out std_logic;
-        rs2_used : out std_logic;
-        rd_used : out std_logic;
-        rs1 : out std_logic_vector(1 downto 0);
-        rs2 : out std_logic_vector(1 downto 0);
-        rd : out std_logic_vector(1 downto 0);
-        imm : out signed(11 downto 0)
+        info : out instruction_info
     );
 end instr_logic;
 
@@ -28,28 +17,55 @@ architecture rtl of instr_logic is
     signal instr_11_8 : unsigned(3 downto 0);
 begin
     instr_11_8 <= unsigned(instruction(11 downto 8));
-    instr_is_sd <= '1' when instr_11_8 = 11 else
-        '0';
-    instr_is_ld <= '1' when instr_11_8 = 11 else
-        '0';
-    instr_bz_or_bnz <= '1' when instr_11_8 = 14 or instr_11_8 = 15 else
-        '0';
-    instr_is_branch <= '1' when instr_11_8 >= 12 else
-        '0';
-    is_nop <= '1' when instruction(11 downto 8) = "0000" and instruction(1 downto 0) = "00" else
-        '0';
-    rs1_used <= '0' when is_nop = '1' or instr_11_8 = 13 else
-        '1';
-    rs2_used <= '1' when (is_nop = '0' and instr_11_8 < 3) or instr_is_sd = '1' else
-        '0';
-    rd_used <= '0' when instr_is_sd = '1' or instr_bz_or_bnz = '1' or is_nop = '1' else
-        '1';
-    rs1 <= instruction(7 downto 6) when instr_bz_or_bnz = '1' else
-        instruction(5 downto 4);
-    rs2 <= instruction(7 downto 6) when instr_is_sd = '1' else
-        instruction(3 downto 2);
-    rd <= instruction(7 downto 6);
 
-    imm <= signed("000000" & instruction(5 downto 0)) when instr_11_8 > 12 else
-            signed("00000000" & instruction(3 downto 0));
+    info.opcode <=
+    OP_NOP when instruction(11 downto 8) = "0000" and instruction(1 downto 0) = "00" else
+    OP_ADD when instruction(11 downto 8) = "0000" and instruction(1 downto 0) = "01" else
+    OP_SUB when instruction(11 downto 8) = "0000" and instruction(1 downto 0) = "10" else
+    OP_MULT when instruction(11 downto 8) = "0000" and instruction(1 downto 0) = "11" else
+    OP_DIV when instruction(11 downto 8) = "0001" and instruction(1 downto 0) = "00" else
+    OP_MOD when instruction(11 downto 8) = "0001" and instruction(1 downto 0) = "01" else
+    OP_AND when instruction(11 downto 8) = "0001" and instruction(1 downto 0) = "10" else
+    OP_OR when instruction(11 downto 8) = "0001" and instruction(1 downto 0) = "11" else
+    OP_XOR when instruction(11 downto 8) = "0010" and instruction(1 downto 0) = "00" else
+    OP_NOT when instruction(11 downto 8) = "0010" and instruction(1 downto 0) = "11" else
+    OP_ADDI when instruction(11 downto 8) = "0011" else
+    OP_SUBI when instruction(11 downto 8) = "0100" else
+    OP_MULTI when instruction(11 downto 8) = "0101" else
+    OP_DIVI when instruction(11 downto 8) = "0110" else
+    OP_MODI when instruction(11 downto 8) = "0111" else
+    OP_SHLI when instruction(11 downto 8) = "1000" else
+    OP_SHRI when instruction(11 downto 8) = "1001" else
+    OP_LD when instruction(11 downto 8) = "1010" else
+    OP_SD when instruction(11 downto 8) = "1011" else
+    OP_JALR when instruction(11 downto 8) = "1100" else
+    OP_JAL when instruction(11 downto 8) = "1101" else
+    OP_BZ when instruction(11 downto 8) = "1110" else
+    OP_BNZ when instruction(11 downto 8) = "1111" else
+    OP_NOP;
+
+    info.is_sd <= '1' when info.opcode = OP_SD else
+    '0';
+    info.is_ld <= '1' when info.opcode = OP_LD else
+    '0';
+    info.is_bz_or_bnz <= '1' when info.opcode = OP_BZ or info.opcode = OP_BNZ else
+    '0';
+    info.is_branch <= '1' when info.opcode = OP_JALR or info.opcode = OP_JAL or info.opcode = OP_BZ or info.opcode = OP_BNZ else
+    '0';
+    info.is_nop <= '1' when info.opcode = OP_NOP else
+    '0';
+    info.is_rs1_used <= '0' when info.is_nop = '1' or info.opcode = OP_JAL else
+    '1';
+    info.is_rs2_used <= '1' when (info.is_nop = '0' and instr_11_8 < 3) or info.is_sd = '1' else
+    '0';
+    info.is_rd_used <= '0' when info.is_sd = '1' or info.is_bz_or_bnz = '1' or info.is_nop = '1' else
+    '1';
+    info.rs1 <= instruction(7 downto 6) when info.is_bz_or_bnz = '1' else
+    instruction(5 downto 4);
+    info.rs2 <= instruction(7 downto 6) when info.is_sd = '1' else
+    instruction(3 downto 2);
+    info.rd <= instruction(7 downto 6);
+
+    info.imm <= signed("000000" & instruction(5 downto 0)) when instr_11_8 > 12 else
+    signed("00000000" & instruction(3 downto 0));
 end rtl;

@@ -9,12 +9,30 @@ package processor_pkg is
     subtype address_type is unsigned(11 downto 0); -- 12 bit addresses
     subtype word_type is std_logic_vector(11 downto 0); -- word here is 12 bits
 
-    type proc_state is (
-        PROC_IF, -- instruction fetch
-        PROC_ID, -- instruction decode
-        PROC_EX, -- execute
-        PROC_MEM, -- memory access
-        PROC_WB -- write-back
+    type instruction_code is (
+        OP_NOP,
+        OP_ADD,
+        OP_SUB,
+        OP_MULT,
+        OP_DIV,
+        OP_MOD,
+        OP_AND,
+        OP_OR,
+        OP_XOR,
+        OP_NOT,
+        OP_ADDI,
+        OP_SUBI,
+        OP_MULTI,
+        OP_DIVI,
+        OP_MODI,
+        OP_SHLI,
+        OP_SHRI,
+        OP_LD,
+        OP_SD,
+        OP_JALR,
+        OP_JAL,
+        OP_BZ,
+        OP_BNZ
     );
 
     -- signed when possible
@@ -30,6 +48,39 @@ package processor_pkg is
         ALU_MOD,
         ALU_SLL,
         ALU_SRL
+    );
+
+    type instruction_info is record
+        opcode : instruction_code;
+        is_sd : std_logic;
+        is_ld : std_logic;
+        is_bz_or_bnz : std_logic;
+        is_branch : std_logic; -- 1 if is branching instruction : {bz, bnz, jal, jalr}
+        is_nop : std_logic;
+        is_rs1_used : std_logic;
+        is_rs2_used : std_logic;
+        is_rd_used : std_logic;
+        rs1 : std_logic_vector(1 downto 0); -- register address
+        rs2 : std_logic_vector(1 downto 0); -- register address
+        rd : std_logic_vector(1 downto 0); -- register address
+        imm : signed(11 downto 0);
+    end record instruction_info;
+
+    -- pour resetter les registres
+    constant NOP_INSTR_INFO : instruction_info := (
+        opcode => OP_NOP,
+        is_sd => '0',
+        is_ld => '0',
+        is_bz_or_bnz => '0',
+        is_branch => '0',
+        is_nop => '0',
+        is_rs1_used => '0',
+        is_rs2_used => '0',
+        is_rd_used => '0',
+        rs1 => (others => '0'),
+        rs2 => (others => '0'),
+        rd => (others => '0'),
+        imm => (others => '0')
     );
 
     function to_word(s: std_logic_vector) return word_type;

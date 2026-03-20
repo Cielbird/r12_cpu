@@ -24,7 +24,8 @@ begin
         variable b_u12 : signed(11 downto 0);
         variable out_u12 : signed(11 downto 0);
     begin
-        if rising_edge(clk) then
+        -- alu was async in the design I followed, so this needs to be falling edge
+        if falling_edge(clk) then
             a_u12 := signed(a);
             b_u12 := signed(b);
             case op is
