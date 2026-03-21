@@ -70,12 +70,12 @@ architecture rtl of processor_top is
     -- register writeback stage (WB)
     signal WB_instr : word_type;
     signal WB_instr_info : instruction_info;
-    signal WB_result : word_type;
+    signal WB_alu_result: word_type;
     signal WB_load : word_type;
 
     -- register bank signals
     signal rd_to_regs : std_logic_vector(1 downto 0); -- "address" in reg bank for rd
-    signal rd_val_to_regs : word_type;
+    signal WB_result : word_type;
     signal registers_we : std_logic;
 
     -- after decoding
@@ -123,6 +123,7 @@ architecture rtl of processor_top is
             instruction : in word_type;
             PC_in : in address_type;
             rs1_val : in word_type;
+            instr_imm : in signed(11 downto 0);
             branch_taken : out std_logic;
             result : out word_type;
             PC_out : out address_type
@@ -142,8 +143,6 @@ architecture rtl of processor_top is
     end component;
 begin
 
-    pc_we <= '1' when data_read_ready = '1' and stall_flag = '0' else
-        '0';
 
     stall_flag <= '1' when (((ID_instr_info.is_rs1_used = '1' and EX_instr_info.is_rd_used = '1' and (ID_instr_info.rs1 = EX_instr_info.rd))
         or (ID_instr_info.is_rs2_used = '1' and EX_instr_info.is_rd_used = '1' and (ID_instr_info.rs2 = EX_instr_info.rd)))
@@ -151,6 +150,8 @@ begin
         '0';
 
     -- instruction fetch stage (IF)
+    pc_we <= '1' when data_read_ready = '1' and stall_flag = '0' else
+        '0';
     IF_instr <= instr_data;
     process (clk, reset)
     begin
@@ -207,6 +208,7 @@ begin
         instruction => EX_instr,
         PC_in => EX_pc,
         rs1_val => EX_fw_rs1_val,
+        instr_imm => EX_instr_info.imm,
         branch_taken => EX_branch_taken,
         result => EX_branch_unit_result,
         PC_out => EX_pc_out
@@ -283,7 +285,7 @@ begin
             MEM_write_data <= to_word(x"000");
         elsif rising_edge(clk) then
             if data_read_ready = '1' then
-                MEM_pc <= EX_pc;
+                MEM_pc <= EX_pc_out;
                 if MEM_branch_taken = '1' then
                     MEM_instr <= (others => '0');
                     MEM_instr_info <= NOP_INSTR_INFO;
@@ -300,7 +302,6 @@ begin
                 else
                     MEM_result <= alu_out;
                 end if;
-
             end if;
         end if;
     end process;
@@ -319,14 +320,14 @@ begin
             WB_instr <= (others => '0');
             WB_instr_info <= NOP_INSTR_INFO;
 
-            WB_result <= (others => '0');
+            WB_alu_result<= (others => '0');
             WB_load <= (others => '0');
         elsif rising_edge(clk) then
             if data_read_ready = '1' then
                 WB_instr <= MEM_instr;
                 WB_instr_info <= MEM_instr_info;
 
-                WB_result <= MEM_result;
+                WB_alu_result <= MEM_result;
                 WB_load <= data_in; -- data from RAM
             end if;
         end if;
@@ -342,12 +343,11 @@ begin
         rs2_val_out => ID_rs2_val,
         we => registers_we,
         rd => rd_to_regs,
-        rd_val_in => rd_val_to_regs
+        rd_val_in => WB_result
     );
 
     rd_to_regs <= WB_instr_info.rd;
-    rd_val_to_regs <= WB_load when WB_instr_info.is_ld else
-        WB_result;
+    WB_result <= WB_load when WB_instr_info.is_ld else WB_result;
 
     registers_we <= '1' when -- writeback by default
         (WB_instr_info.is_sd = '0' and -- sd doesn't write to registers

@@ -117,7 +117,7 @@ begin
         -- wait until halt='1';
 
         -- for now it doesn't work, so just run 100 cycles, so other tests can run
-        wait for clk_period*100;
+        wait for clk_period*1000;
 
         done <= true;
         wait;

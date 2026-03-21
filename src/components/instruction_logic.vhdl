@@ -15,6 +15,8 @@ end instr_logic;
 
 architecture rtl of instr_logic is
     signal instr_11_8 : unsigned(3 downto 0);
+    signal imm_5_0 : signed(5 downto 0);
+    signal imm_3_0 : unsigned(3 downto 0);
 begin
     instr_11_8 <= unsigned(instruction(11 downto 8));
 
@@ -66,6 +68,9 @@ begin
     instruction(3 downto 2);
     info.rd <= instruction(7 downto 6);
 
-    info.imm <= signed("000000" & instruction(5 downto 0)) when instr_11_8 > 12 else
-    signed("00000000" & instruction(3 downto 0));
+    imm_5_0 <= signed(instruction(5 downto 0));
+    imm_3_0 <= unsigned(instruction(3 downto 0));
+    -- careful here, the [5..0] needs to be padded correctly : it's a signed val (2s comp sign extension)
+    info.imm <= resize(imm_5_0, 12) when instr_11_8 > 12 else
+    signed(resize(imm_3_0, 12));
 end rtl;

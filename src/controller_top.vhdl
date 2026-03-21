@@ -23,7 +23,9 @@ entity controller_top is
         data_addr : out address_type := (others => '0');
         data_proc_to_ram : out word_type := (others => '0');
         data_ram_to_proc : out word_type := (others => '0');
-        data_ready : out std_logic := '0'
+        data_ready : out std_logic := '0';
+
+        clk_counter_dbg : out unsigned(11 downto 0)
     );
 end controller_top;
 
@@ -118,7 +120,9 @@ begin
     begin
         if reset = '1' then
             halt <= '0';
+            clk_counter_dbg <= (others => '0');
         elsif rising_edge(clk) then
+            clk_counter_dbg <= clk_counter_dbg + to_unsigned(1, 12);
             -- HALTING CONDITION : writing x458 at xFFF
             if data_we='1' and data_addr=x"FFF" and data_proc_to_ram_signal=x"458" then
                 halt <= '1';
