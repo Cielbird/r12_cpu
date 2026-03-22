@@ -1,6 +1,6 @@
 # r12 cpu
 
-a 12-bit processor written in VHDL
+A 12-bit processor written in VHDL. With pipelining, and forwarding.
 
 ## r12 assembler
 
