@@ -10,8 +10,11 @@ https://github.com/Cielbird/GIF-3000-R12
 
 ## testing
 
-run cpu test-bench :
+[ghdl](https://github.com/ghdl/ghdl), make, and bash scripts used for testing.
+
+run all tests :
 `make test`
 
-view output (alu test, for example):
+view output with [gtkwave](https://github.com/gtkwave/gtkwave). 
+alu test, for example:
 `gtkwave ./build/tb_alu_wave.vcd`

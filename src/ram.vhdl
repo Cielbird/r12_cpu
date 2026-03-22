@@ -40,20 +40,22 @@ architecture ideal of memory_controller is
     signal memory_data : memory_type := init_memory;
 
 begin
-    process (clk, we, data_in)
+    process (clk, reset, we, data_in)
     begin
         ready <= '1'; -- this one is always ready
         if reset='1' then
             data_out <= to_word(x"000");
-        elsif rising_edge(clk) then
-            if we = '1' then
-                memory_data(to_integer(unsigned(addr_in))) <= data_in; -- adresses are word-space
+        else
+            if rising_edge(clk) then
+                if we = '1' then
+                    memory_data(to_integer(unsigned(addr_in))) <= data_in; -- adresses are word-space
+                end if;
             end if;
-        end if;
 
-        -- reading is 0-tick, async
-        if re = '1' then
-            data_out <= memory_data(to_integer(unsigned(addr_in)));
+            -- reading is 0-tick, async
+            if re = '1' then
+                data_out <= memory_data(to_integer(unsigned(addr_in)));
+            end if;
         end if;
     end process;
 end ideal;
