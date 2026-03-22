@@ -20,7 +20,7 @@ end alu;
 architecture rtl of alu is
 begin
     process (clk)
-        variable a_u12 : signed(11 downto 0); -- TODO convert to signed
+        variable a_u12 : signed(11 downto 0);
         variable b_u12 : signed(11 downto 0);
         variable out_u12 : signed(11 downto 0);
     begin

@@ -352,7 +352,6 @@ begin
     registers_we <= '1' when -- writeback by default
         (WB_instr_info.is_sd = '0' and -- sd doesn't write to registers
         WB_instr_info.is_bz_or_bnz = '0' and -- bz and bnz don't write to registers
-        -- TODO put is_nop in instruction_logic
-        not (WB_instr(11 downto 8) = "0000" and WB_instr(1 downto 0) = "00")) else -- nop doesn't write to registers
+        WB_instr_info.is_nop='0') else -- nop doesn't write to registers
         '0';
 end rtl;
