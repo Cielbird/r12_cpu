@@ -294,7 +294,7 @@ begin
                     MEM_instr_info <= EX_instr_info;
                 end if;
 
-                MEM_write_data <= EX_rs2_val;
+                MEM_write_data <= EX_fw_rs2_val;
                 MEM_branch_taken <= EX_branch_taken;
 
                 if EX_instr_info.is_branch = '1' then
@@ -347,7 +347,7 @@ begin
     );
 
     rd_to_regs <= WB_instr_info.rd;
-    WB_result <= WB_load when WB_instr_info.is_ld else WB_result;
+    WB_result <= WB_load when WB_instr_info.is_ld else WB_alu_result;
 
     registers_we <= '1' when -- writeback by default
         (WB_instr_info.is_sd = '0' and -- sd doesn't write to registers
